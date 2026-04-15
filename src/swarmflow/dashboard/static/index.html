@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SwarmFlow Dashboard</title>
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d28;
+            --surface2: #232736;
+            --border: #2e3348;
+            --text: #e4e6f0;
+            --text-dim: #8b8fa8;
+            --cyan: #22d3ee;
+            --green: #4ade80;
+            --yellow: #facc15;
+            --red: #f87171;
+            --purple: #a78bfa;
+            --blue: #60a5fa;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        header h1 { font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem; }
+        header h1 span { color: var(--cyan); }
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-idle { background: var(--surface2); color: var(--text-dim); }
+        .status-planning { background: #1e3a5f; color: var(--blue); }
+        .status-executing { background: #1a3a2a; color: var(--green); }
+        .status-synthesizing { background: #2d1f4e; color: var(--purple); }
+        .status-complete { background: #1a3a2a; color: var(--green); }
+        .main { padding: 1.5rem 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+        .card h2 {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .full-width { grid-column: 1 / -1; }
+        /* Goal */
+        .goal-text { font-size: 1.1rem; color: var(--cyan); font-weight: 500; }
+        /* Agents */
+        .agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; }
+        .agent-card {
+            background: var(--surface2);
+            border-radius: 8px;
+            padding: 0.75rem;
+            border-left: 3px solid var(--border);
+        }
+        .agent-card.leader { border-left-color: var(--cyan); }
+        .agent-card.working { border-left-color: var(--yellow); }
+        .agent-card.done { border-left-color: var(--green); }
+        .agent-card.failed { border-left-color: var(--red); }
+        .agent-name { font-weight: 600; font-size: 0.9rem; }
+        .agent-role { font-size: 0.75rem; color: var(--text-dim); }
+        .agent-status { font-size: 0.75rem; margin-top: 0.25rem; }
+        /* Tasks */
+        .task-list { display: flex; flex-direction: column; gap: 0.5rem; }
+        .task-item {
+            background: var(--surface2);
+            border-radius: 8px;
+            padding: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .task-status-icon { font-size: 1.1rem; }
+        .task-title { font-weight: 500; font-size: 0.9rem; }
+        .task-owner { font-size: 0.75rem; color: var(--cyan); }
+        .task-result { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.25rem; }
+        /* Messages */
+        .msg-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 400px; overflow-y: auto; }
+        .msg-item {
+            background: var(--surface2);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+        }
+        .msg-from { color: var(--cyan); font-weight: 600; }
+        .msg-to { color: var(--purple); }
+        .msg-time { color: var(--text-dim); font-size: 0.7rem; }
+        .msg-content { margin-top: 0.25rem; color: var(--text); }
+        /* Reports */
+        .report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem; }
+        .report-card {
+            background: var(--surface2);
+            border-radius: 8px;
+            padding: 0.75rem;
+        }
+        .report-agent { font-weight: 600; color: var(--cyan); font-size: 0.9rem; }
+        .report-summary { font-size: 0.85rem; margin-top: 0.25rem; }
+        .score-bar {
+            margin-top: 0.5rem;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .score-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+        /* Final report */
+        .final-report {
+            background: var(--surface2);
+            border-radius: 8px;
+            padding: 1rem;
+            white-space: pre-wrap;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        /* Connection status */
+        .connection { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot.connected { background: var(--green); }
+        .dot.disconnected { background: var(--red); }
+        /* Empty state */
+        .empty { color: var(--text-dim); font-style: italic; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🐝 <span>SwarmFlow</span> Dashboard</h1>
+        <div style="display:flex;align-items:center;gap:1rem;">
+            <span id="phase-badge" class="status-badge status-idle">Idle</span>
+            <div class="connection">
+                <div id="conn-dot" class="dot disconnected"></div>
+                <span id="conn-text">Disconnected</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="main">
+        <!-- Goal -->
+        <div class="card full-width">
+            <h2>🎯 Team Goal</h2>
+            <div id="goal" class="goal-text empty">Waiting for swarm launch...</div>
+        </div>
+
+        <!-- Agents -->
+        <div class="card">
+            <h2>🤖 Agents</h2>
+            <div id="agents" class="agent-grid"><span class="empty">No agents yet</span></div>
+        </div>
+
+        <!-- Tasks -->
+        <div class="card">
+            <h2>📋 Task Board</h2>
+            <div id="tasks" class="task-list"><span class="empty">No tasks yet</span></div>
+        </div>
+
+        <!-- Messages -->
+        <div class="card">
+            <h2>💬 Agent Messages</h2>
+            <div id="messages" class="msg-list"><span class="empty">No messages yet</span></div>
+        </div>
+
+        <!-- Reports -->
+        <div class="card">
+            <h2>📊 Worker Reports</h2>
+            <div id="reports" class="report-grid"><span class="empty">No reports yet</span></div>
+        </div>
+
+        <!-- Final Report -->
+        <div class="card full-width" id="final-section" style="display:none;">
+            <h2>📝 Final Report</h2>
+            <div id="final-report" class="final-report"></div>
+        </div>
+    </div>
+
+    <script>
+        const statusIcons = {
+            pending: '⏳', blocked: '🚫', in_progress: '🔄', completed: '✅', failed: '❌'
+        };
+
+        function scoreColor(score) {
+            if (score >= 0.7) return 'var(--green)';
+            if (score >= 0.4) return 'var(--yellow)';
+            return 'var(--red)';
+        }
+
+        function render(state) {
+            // Phase
+            const badge = document.getElementById('phase-badge');
+            badge.textContent = state.phase || 'idle';
+            badge.className = 'status-badge status-' + (state.phase || 'idle');
+
+            // Goal
+            const goalEl = document.getElementById('goal');
+            if (state.team && state.team.goal) {
+                goalEl.textContent = state.team.goal;
+                goalEl.classList.remove('empty');
+            }
+
+            // Agents
+            const agentsEl = document.getElementById('agents');
+            if (state.agents && Object.keys(state.agents).length > 0) {
+                agentsEl.innerHTML = Object.values(state.agents).map(a =>
+                    `<div class="agent-card ${a.role === 'leader' ? 'leader' : a.status}">
+                        <div class="agent-name">${a.role === 'leader' ? '🦞' : '🤖'} ${a.name}</div>
+                        <div class="agent-role">${a.role}</div>
+                        <div class="agent-status">${a.status}</div>
+                    </div>`
+                ).join('');
+            }
+
+            // Tasks
+            const tasksEl = document.getElementById('tasks');
+            if (state.tasks && state.tasks.length > 0) {
+                tasksEl.innerHTML = state.tasks.map(t =>
+                    `<div class="task-item">
+                        <span class="task-status-icon">${statusIcons[t.status] || '❓'}</span>
+                        <div>
+                            <div class="task-title">${t.title}</div>
+                            <div class="task-owner">→ ${t.owner}</div>
+                            ${t.result ? `<div class="task-result">${t.result}</div>` : ''}
+                        </div>
+                    </div>`
+                ).join('');
+            }
+
+            // Messages
+            const msgsEl = document.getElementById('messages');
+            if (state.messages && state.messages.length > 0) {
+                msgsEl.innerHTML = state.messages.slice(-20).reverse().map(m =>
+                    `<div class="msg-item">
+                        <span class="msg-from">${m.sender}</span> → <span class="msg-to">${m.recipient}</span>
+                        <span class="msg-time">${new Date(m.timestamp).toLocaleTimeString()}</span>
+                        <div class="msg-content">${m.content.substring(0, 200)}</div>
+                    </div>`
+                ).join('');
+            }
+
+            // Reports
+            const reportsEl = document.getElementById('reports');
+            if (state.reports && state.reports.length > 0) {
+                reportsEl.innerHTML = state.reports.map(r =>
+                    `<div class="report-card">
+                        <div class="report-agent">${r.agent_name}</div>
+                        <div class="report-summary">${r.summary}</div>
+                        ${r.score !== null ? `<div class="score-bar"><div class="score-fill" style="width:${r.score*100}%;background:${scoreColor(r.score)}"></div></div>` : ''}
+                    </div>`
+                ).join('');
+            }
+
+            // Final report
+            const finalSection = document.getElementById('final-section');
+            const finalEl = document.getElementById('final-report');
+            if (state.final_report) {
+                finalSection.style.display = 'block';
+                finalEl.textContent = state.final_report;
+            }
+        }
+
+        // WebSocket connection
+        let ws;
+        function connect() {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+            ws.onopen = () => {
+                document.getElementById('conn-dot').className = 'dot connected';
+                document.getElementById('conn-text').textContent = 'Connected';
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const state = JSON.parse(event.data);
+                    render(state);
+                } catch (e) {
+                    console.error('Parse error:', e);
+                }
+            };
+
+            ws.onclose = () => {
+                document.getElementById('conn-dot').className = 'dot disconnected';
+                document.getElementById('conn-text').textContent = 'Reconnecting...';
+                setTimeout(connect, 2000);
+            };
+
+            ws.onerror = () => ws.close();
+        }
+
+        connect();
+
+        // Also poll on load for initial state
+        fetch('/api/state').then(r => r.json()).then(render).catch(() => {});
+    </script>
+</body>
+</html>

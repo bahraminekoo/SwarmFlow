@@ -1,0 +1,22 @@
+services:
+  swarmflow:
+    build: .
+    container_name: swarmflow
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "8080:8080"
+    command: ["dashboard", "--port", "8080"]
+
+  swarm-run:
+    build: .
+    container_name: swarmflow-run
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    profiles:
+      - run
+    command: ["launch", "hedge-fund", "--goal", "Evaluate TSLA, AMD, META for Q2 2026 portfolio allocation"]
