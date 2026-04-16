@@ -214,7 +214,7 @@ make format
 - [x] Task DAG with dependency resolution
 - [x] Inter-agent messaging
 - [x] YAML template system
-- [x] 3 built-in templates (hedge fund, research, code review)
+- [x] 3 built-in templates (hedge fund, research, startup pitch)
 - [x] Typer CLI
 - [x] FastAPI + WebSocket dashboard
 - [x] Docker support
