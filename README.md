@@ -12,6 +12,12 @@
 
 ---
 
+## 🎬 Demo
+
+![SwarmFlow Dashboard Demo](assets/demo.gif)
+
+---
+
 ## ✨ What is SwarmFlow?
 
 SwarmFlow is a **LangGraph-native agent swarm orchestration framework**. It orchestrates multiple LLM-powered agents in-process — planning tasks, dividing work, communicating via an inbox system, and synthesizing results — making it self-contained, easy to demo, and production-ready.

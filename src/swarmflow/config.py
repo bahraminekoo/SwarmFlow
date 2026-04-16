@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 
@@ -44,6 +45,9 @@ class SwarmFlowConfig(BaseModel):
     def load(cls, config_path: str | Path | None = None) -> SwarmFlowConfig:
         """Load config from YAML file, then overlay environment variables."""
         data: dict[str, Any] = {}
+
+        # Auto-load .env file if present
+        load_dotenv()
 
         if config_path and Path(config_path).exists():
             with open(config_path) as f:
