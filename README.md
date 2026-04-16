@@ -14,7 +14,11 @@
 
 ## 🎬 Demo
 
-![SwarmFlow Dashboard Demo](assets/demo.gif)
+### Web Dashboard
+![SwarmFlow Dashboard](assets/dashboard-demo.gif)
+
+### CLI
+![SwarmFlow CLI](assets/cli-demo.gif)
 
 ---
 
