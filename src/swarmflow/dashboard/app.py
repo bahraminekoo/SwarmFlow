@@ -12,6 +12,7 @@ from typing import Any
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel as PydanticBaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ _dashboard_state: dict[str, Any] = {
 }
 
 _connected_clients: set[WebSocket] = set()
+_swarm_running: bool = False
 
 
 def update_dashboard_state(state: dict[str, Any]) -> None:
@@ -110,7 +112,14 @@ def update_dashboard_state(state: dict[str, Any]) -> None:
     _dashboard_state["updated_at"] = datetime.utcnow().isoformat()
 
     # Broadcast to all connected WebSocket clients
-    asyncio.ensure_future(_broadcast_state())
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.ensure_future(_broadcast_state())
+        else:
+            loop.run_until_complete(_broadcast_state())
+    except RuntimeError:
+        pass
 
 
 async def _broadcast_state() -> None:
@@ -128,13 +137,38 @@ async def _broadcast_state() -> None:
     _connected_clients -= disconnected
 
 
+class LaunchRequest(PydanticBaseModel):
+    template: str = "hedge-fund"
+    goal: str = ""
+
+
+def _reset_dashboard_state() -> None:
+    """Reset dashboard state for a new swarm run."""
+    global _dashboard_state
+    _dashboard_state = {
+        "team": None,
+        "agents": {},
+        "tasks": [],
+        "messages": [],
+        "reports": [],
+        "phase": "idle",
+        "final_report": "",
+        "errors": [],
+        "updated_at": None,
+    }
+
+
 def create_app() -> FastAPI:
     """Create the FastAPI dashboard application."""
     app = FastAPI(title="SwarmFlow Dashboard", version="0.1.0")
 
     static_dir = Path(__file__).parent / "static"
     if static_dir.exists():
-        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+        app.mount(
+            "/static",
+            StaticFiles(directory=str(static_dir)),
+            name="static",
+        )
 
     @app.get("/", response_class=HTMLResponse)
     async def index():
@@ -149,15 +183,86 @@ def create_app() -> FastAPI:
         """Get current swarm state as JSON."""
         return _dashboard_state
 
+    @app.get("/api/templates")
+    async def get_templates():
+        """List available templates."""
+        from swarmflow.engine.templates import (
+            list_templates,
+            load_template_by_name,
+        )
+
+        names = list_templates()
+        templates = []
+        for name in names:
+            try:
+                tmpl = load_template_by_name(name)
+                templates.append({
+                    "name": tmpl.name,
+                    "description": tmpl.description,
+                    "default_goal": tmpl.default_goal,
+                    "workers": len(tmpl.workers),
+                })
+            except Exception:
+                templates.append({"name": name, "description": "Error loading"})
+        return templates
+
+    @app.post("/api/launch")
+    async def launch_swarm(req: LaunchRequest):
+        """Launch a swarm from the dashboard."""
+        global _swarm_running
+
+        if _swarm_running:
+            return {"error": "A swarm is already running"}
+
+        from swarmflow.engine.graph import run_swarm
+        from swarmflow.engine.templates import load_template_by_name
+
+        try:
+            tmpl = load_template_by_name(req.template)
+        except FileNotFoundError:
+            return {"error": f"Template '{req.template}' not found"}
+
+        goal = req.goal or tmpl.default_goal
+        if not goal:
+            return {"error": "No goal provided"}
+
+        _swarm_running = True
+        _reset_dashboard_state()
+
+        async def _run_in_background():
+            global _swarm_running
+            try:
+                await run_swarm(
+                    team_name=tmpl.name,
+                    goal=goal,
+                    worker_configs=tmpl.get_worker_configs(),
+                    description=tmpl.description,
+                    on_state_update=update_dashboard_state,
+                )
+            except Exception as e:
+                logger.exception("Swarm execution error")
+                _dashboard_state["errors"].append(str(e))
+                _dashboard_state["phase"] = "failed"
+                await _broadcast_state()
+            finally:
+                _swarm_running = False
+
+        asyncio.ensure_future(_run_in_background())
+        return {"status": "launched", "template": req.template, "goal": goal}
+
     @app.websocket("/ws")
     async def websocket_endpoint(ws: WebSocket):
         """WebSocket endpoint for real-time updates."""
         await ws.accept()
         _connected_clients.add(ws)
-        logger.info(f"Dashboard client connected ({len(_connected_clients)} total)")
+        logger.info(
+            f"Dashboard client connected ({len(_connected_clients)} total)"
+        )
         try:
             # Send current state immediately
-            await ws.send_text(json.dumps(_dashboard_state, default=str))
+            await ws.send_text(
+                json.dumps(_dashboard_state, default=str)
+            )
             # Keep connection alive
             while True:
                 await ws.receive_text()
@@ -165,7 +270,10 @@ def create_app() -> FastAPI:
             pass
         finally:
             _connected_clients.discard(ws)
-            logger.info(f"Dashboard client disconnected ({len(_connected_clients)} total)")
+            logger.info(
+                f"Dashboard client disconnected"
+                f" ({len(_connected_clients)} total)"
+            )
 
     return app
 

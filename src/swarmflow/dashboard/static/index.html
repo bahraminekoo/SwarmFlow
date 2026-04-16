@@ -144,6 +144,49 @@
         .dot.disconnected { background: var(--red); }
         /* Empty state */
         .empty { color: var(--text-dim); font-style: italic; font-size: 0.9rem; }
+        /* Launch form */
+        .launch-bar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .launch-bar select, .launch-bar input, .launch-bar button {
+            font-family: inherit;
+            font-size: 0.85rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--surface2);
+            color: var(--text);
+            outline: none;
+        }
+        .launch-bar select { min-width: 160px; }
+        .launch-bar input { flex: 1; min-width: 250px; }
+        .launch-bar button {
+            background: var(--cyan);
+            color: var(--bg);
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            padding: 0.5rem 1.25rem;
+            transition: opacity 0.2s;
+        }
+        .launch-bar button:hover { opacity: 0.85; }
+        .launch-bar button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .launch-bar label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
     </style>
 </head>
 <body>
@@ -157,6 +200,14 @@
             </div>
         </div>
     </header>
+
+    <div class="launch-bar">
+        <label>Template</label>
+        <select id="template-select"><option value="">Loading...</option></select>
+        <label>Goal</label>
+        <input id="goal-input" type="text" placeholder="Enter goal (or leave blank for template default)">
+        <button id="launch-btn" onclick="launchSwarm()">🚀 Launch Swarm</button>
+    </div>
 
     <div class="main">
         <!-- Goal -->
@@ -313,6 +364,70 @@
 
         // Also poll on load for initial state
         fetch('/api/state').then(r => r.json()).then(render).catch(() => {});
+
+        // Load templates into the selector
+        async function loadTemplates() {
+            try {
+                const res = await fetch('/api/templates');
+                const templates = await res.json();
+                const sel = document.getElementById('template-select');
+                sel.innerHTML = templates.map(t =>
+                    `<option value="${t.name}" data-goal="${t.default_goal || ''}">${t.name} (${t.workers} agents)</option>`
+                ).join('');
+                // Set goal placeholder from first template
+                if (templates.length > 0) {
+                    document.getElementById('goal-input').placeholder = templates[0].default_goal || 'Enter goal...';
+                }
+                sel.addEventListener('change', () => {
+                    const opt = sel.options[sel.selectedIndex];
+                    document.getElementById('goal-input').placeholder = opt.dataset.goal || 'Enter goal...';
+                });
+            } catch (e) {
+                console.error('Failed to load templates:', e);
+            }
+        }
+        loadTemplates();
+
+        // Launch a swarm from the dashboard
+        async function launchSwarm() {
+            const btn = document.getElementById('launch-btn');
+            const template = document.getElementById('template-select').value;
+            const goal = document.getElementById('goal-input').value;
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Launching...';
+
+            try {
+                const res = await fetch('/api/launch', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ template, goal }),
+                });
+                const data = await res.json();
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    btn.disabled = false;
+                    btn.textContent = '🚀 Launch Swarm';
+                } else {
+                    btn.textContent = '🐝 Running...';
+                    // Re-enable after swarm completes (poll phase)
+                    const checkDone = setInterval(() => {
+                        const phase = document.getElementById('phase-badge').textContent;
+                        if (phase === 'complete' || phase === 'failed') {
+                            btn.disabled = false;
+                            btn.textContent = '🚀 Launch Swarm';
+                            clearInterval(checkDone);
+                        }
+                    }, 2000);
+                }
+            } catch (e) {
+                alert('Launch failed: ' + e.message);
+                btn.disabled = false;
+                btn.textContent = '🚀 Launch Swarm';
+            }
+        }
+        // Make launchSwarm available globally for onclick
+        window.launchSwarm = launchSwarm;
     </script>
 </body>
 </html>

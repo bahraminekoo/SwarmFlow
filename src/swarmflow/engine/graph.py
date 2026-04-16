@@ -187,6 +187,7 @@ async def run_swarm(
     goal: str,
     worker_configs: dict[str, str],
     description: str = "",
+    on_state_update: Any = None,
 ) -> SwarmState:
     """High-level API: build and run a complete swarm.
 
@@ -242,7 +243,26 @@ async def run_swarm(
     logger.info(f"🚀 Launching swarm '{team_name}' with {len(worker_configs)} workers")
     logger.info(f"📎 Goal: {goal}")
 
-    final_state = await compiled.ainvoke(initial_state)
+    # Notify initial state
+    if on_state_update:
+        on_state_update(initial_state)
+
+    # Stream execution so we can push updates after each step
+    final_state = None
+    async for chunk in compiled.astream(initial_state):
+        # Each chunk is a dict of {node_name: state_update}
+        # Merge into a running view for the callback
+        if final_state is None:
+            final_state = dict(initial_state)
+        for node_name, update in chunk.items():
+            if isinstance(update, dict):
+                for k, v in update.items():
+                    final_state[k] = v
+        if on_state_update:
+            on_state_update(final_state)
+
+    if final_state is None:
+        final_state = initial_state
 
     logger.info(f"✅ Swarm '{team_name}' completed")
     return final_state
