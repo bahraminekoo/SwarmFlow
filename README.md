@@ -38,7 +38,7 @@ Human: "Evaluate TSLA, AMD, META for Q2 2026 portfolio allocation"
 - **🦞 Swarm Intelligence** — Leader agent spawns workers, assigns tasks, monitors progress, synthesizes results
 - **📋 Task DAG** — Dependency-aware task scheduling with auto-unblocking
 - **💬 Inter-Agent Messaging** — Agents communicate via an inbox system (send, receive, broadcast)
-- **🎪 Team Templates** — YAML files define reusable team archetypes (hedge fund, research, code review)
+- **🎪 Team Templates** — YAML files define reusable team archetypes (hedge fund, research, startup pitch)
 - **📊 Real-Time Dashboard** — FastAPI + WebSocket monitoring UI
 - **🔌 Dual LLM Backend** — OpenRouter (GPT-4o, Claude, Gemini) + Ollama (local models) — switchable via config
 - **🏗️ Built on LangGraph** — StateGraph with conditional edges, concurrent worker execution, state reducers
