@@ -16,15 +16,26 @@ def merge_dict(left: dict, right: dict) -> dict:
     return merged
 
 
+def _item_key(item):
+    """Return a hashable key for a list item."""
+    item_id = getattr(item, "id", None)
+    if item_id is not None:
+        return item_id
+    # For objects without an id (e.g. AgentReport), use their JSON repr
+    if hasattr(item, "model_dump_json"):
+        return item.model_dump_json()
+    return id(item)
+
+
 def merge_list(left: list, right: list) -> list:
     """Append items from right to left, avoiding duplicates by id."""
-    existing_ids = {getattr(item, "id", None) or item for item in left}
+    existing_keys = {_item_key(item) for item in left}
     merged = list(left)
     for item in right:
-        item_id = getattr(item, "id", None) or item
-        if item_id not in existing_ids:
+        key = _item_key(item)
+        if key not in existing_keys:
             merged.append(item)
-            existing_ids.add(item_id)
+            existing_keys.add(key)
     return merged
 
 

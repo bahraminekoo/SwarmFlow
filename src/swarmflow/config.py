@@ -18,7 +18,7 @@ class LLMProvider(str, Enum):
 
 class LLMConfig(BaseModel):
     provider: LLMProvider = LLMProvider.OPENROUTER
-    model: str = "openai/gpt-4o"
+    model: str = "qwen/qwen3-8b"
     base_url: str = "https://openrouter.ai/api/v1"
     api_key: str = ""
     temperature: float = 0.3
